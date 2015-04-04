@@ -1,0 +1,145 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Thin Sectioned Essay
+% LaTeX Template
+% Version 1.0 (3/8/13)
+%
+% This template has been downloaded from:
+% http://www.LaTeXTemplates.com
+%
+% Original Author:
+% Nicolas Diaz (nsdiaz@uc.cl) with extensive modifications by:
+% Vel (vel@latextemplates.com)
+%
+% License:
+% CC BY-NC-SA 3.0 (http://creativecommons.org/licenses/by-nc-sa/3.0/)
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%----------------------------------------------------------------------------------------
+%	PACKAGES AND OTHER DOCUMENT CONFIGURATIONS
+%----------------------------------------------------------------------------------------
+
+\documentclass[a4paper, 11pt]{article} % Font size (can be 10pt, 11pt or 12pt) and paper size (remove a4paper for US letter paper)
+
+\usepackage[protrusion=true,expansion=true]{microtype} % Better typography
+\usepackage{graphicx} % Required for including pictures
+\usepackage{wrapfig} % Allows in-line images
+\usepackage{amsmath, amsfonts}
+
+\usepackage{mathpazo} % Use the Palatino font
+\usepackage[T1]{fontenc} % Required for accented characters
+\linespread{1.05} % Change line spacing here, Palatino benefits from a slight increase by default
+
+\makeatletter
+\renewcommand\@biblabel[1]{\textbf{#1.}} % Change the square brackets for each bibliography item from '[1]' to '1.'
+\renewcommand{\@listI}{\itemsep=0pt} % Reduce the space between items in the itemize and enumerate environments and the bibliography
+
+\renewcommand{\maketitle}{ % Customize the title - do not edit title and author name here, see the TITLE block below
+\begin{flushright} % Right align
+{\LARGE\@title} % Increase the font size of the title
+
+\vspace{50pt} % Some vertical space between the title and author name
+
+{\large\@author} % Author name
+\\\@date % Date
+
+\vspace{40pt} % Some vertical space between the author block and abstract
+\end{flushright}
+}
+
+%----------------------------------------------------------------------------------------
+%	TITLE
+%----------------------------------------------------------------------------------------
+
+\title{\textbf{Incrementally Interpreting Multimodal Referring Expressions in Real Time}} % Subtitle
+
+\author{\textsc{Miles Eldon}\\ % Author
+\textsc{Professor Stefanie Tellex} (Reader and Advisor)\\
+{\textsc{Professor Michael Littman} (Second Reader)}
+\\{\textit{Brown University}}} % Institution
+
+\date{\today} % Date
+
+%----------------------------------------------------------------------------------------
+
+\begin{document}
+
+\maketitle % Print the title section
+
+
+%----------------------------------------------------------------------------------------
+%	ESSAY BODY
+%----------------------------------------------------------------------------------------
+
+\section*{Introduction}
+	Robots have long been a great asset in factory settings, yet remain unable to make the crucial leap into daily life. A large barrier to this leap has been an inability to react and interact quickly to the varying requests of human users in rapidly changing environments. My work will focus on creating the capability for a robotic assistant to understand and respond to a human user's referring expressions in real time, allowing for fluid and helpful interactions. Previous work has focused on understanding human requests, but focuses on single modalities such as speech or pointing gestures. There have been a few that fused multimodal expressions to create a more robust system, but even these have been performed offline, creating an unreasonable delay before the robot can react. My work focuses on maintaining a distribution over a users state at all times to allow for continuous recognition and response. The first part of my thesis was generating a system to watch users and continuously estimate their desires using a Bayes Filter. I am now working on extending this so that a robotic assistant can respond to its estimated user state in real time using a Partially Observable Markov Decision Process (POMDP). When complete, the POMDP system will determine the appropriate responses for the robotic assistant, whether asking for clarification or performing the action it believes is desired.
+%------------------------------------------------
+
+\section*{Bayes Filter}
+We began this project with the assumption that the Baxter robot would be assisting a person by handing them different items while the person was attempting to accomplish some task, for example, handing a user the flour while they are making a cake. With this in mind, we designed a Bayes Filter to continuously estimate which object in a scene the user was asking for. As is typical with a Bayes Filter, we have hidden states $\mathcal{X}$, which in this case represents each of the possible objects the person wants, and observations $\mathcal{Z}$, which include speech and arm gesture (and head pose, although this proved too noisy to be useful). The true state at time step $t$ directly imply the observation for that time step, and  each true state is dependent only on the previous state, as shown in the diagram below.\\
+\includegraphics[scale=0.4]{images/bayes_filter}
+
+
+We implemented this system on the Baxter robot, using a unigram model for speech and a Gaussian over the angle between pointing gestures and objects to calculate the probabilities that observations indicated specific objects. We used a large constant ($c=0.95$) probability for the state transitioning to itself, this prevented belief from spiking towards the most recent gesture when previous information gave strong indication of the user's desired object. Formally, at each time step we wish to calculate:
+\begin{align}
+ p(x_t | z_0 \dots z_{t})
+\end{align}
+
+Which is the probability that we are in a specific state at time step $t$ given all observations up to that point.\\
+Using Bayes' Rule, we factor this into  time update:
+\begin{align}
+p(x_t | z_{0:t-1}) = \int_{x_{t-1} \in \mathcal{X}} p(x_t|x_{t-1})\times p(x_{t-1} | z_{0:t-1}) \text{d}x_{t-1}
+\end{align}
+and a measurement update:
+\begin{align}
+p(x_t |z_{0:t}) = \frac{p(z_t | x_t) \times p(x_t | z_{0:t-1})}{p(z_t | z_{0:t-1})} \\\propto p(z_t | x_t) \times p(x_t | z_{0:t-1})
+\end{align}
+with transition function:
+\begin{align}
+p(x_t | x_{t-1}) = \left\{  \begin{array}{ll}
+c &\mbox{if } x_t = x_{t-1}\\
+\frac{1-c}{|S|-1} &\mbox{otherwise}
+\end{array}\right.
+\end{align}
+and observation function: $p(z_t | x_t)$ factored into three independent pieces by our assumption that all observations (user actions) are independent given the true state of the object the user wants. So:
+\begin{align}
+p(z_t | x_t) &= p(l, r, h, s | x_t)\\
+p(z_t | x_t) &= p(l | x_t) \times p(r | x_t) \times p(h | x_t) \times p(s | x_t)
+\end{align}
+Which is then calculated as described above.
+
+
+With these functions, we can alternate the time and measurement updates to form a belief distribution over the possible states.\\
+We ran a user study, consisting of 13 Brown students, each performing 5 trials, for a total of 65 trials. The students were prompted to ask for a designated object in a scene containing four objects: a metal spoon, a metal bowl, a plastic spoon, and a plastic bowl. This was designed to enforce that objects would have similar identifiers. We asked them to ask for the objects in whatever way felt most natural for them, using either language or gesture. We told them they could use both language and gesture, but did not enforce either. We measured the accuracy of the system by recording the percentage of time that the system assigned the highest likelihood to the object designated during the interaction. We ran each trial in several different ways, excluding various pieces of information to show which observations were useful and that using language and gesture improved accuracy. The results are shown below with 95\% confidence intervals:\\\\
+\begin{tabular}{|c|c|}
+\hline
+Random & 25\%\\\hline
+Language Only & 32.4 +/- 10\%\\\hline
+Gesture Only & 73.12 +/- 9\%\\\hline
+Head Pose Only & 21.67 +/- 10\%\\\hline
+Language and Gesture & 81.99 +/- 5.5\%\\\hline
+All Observations & 64.84 +/- 8\%\\\hline
+\end{tabular}\\
+This demonstrated that we had created an accurate method for identifying which object in a scene a user desired. From there, we moved on to designing a reliable method for the robot to respond in a meaningful way.
+\section*{POMDP}
+After a successful demonstration of the Bayes Filter, we moved on to developing a POMDP model for responding to the state estimations created in the Bayes Filter. The only difference between a Bayes Filter and a POMDP is that a POMDP allows for the agent to have actions that have a probabilistic affect on the universe. We can model our Bayes Filter that was described previously as a POMDP with only one action that has no effect.
+
+
+In our POMDP, we wish to allow for the robot to interpret the users desires and respond in meaningful ways when it is unsure. To do this, we wish to augment the state space with a distribution over what the user believes the robots estimate of the users desire is. This is necessary because the robots actions shouldn't change the object the user wants, but rather, how the user will behave to indicate that they want an object. It also allows for affirmation and negation, which are important parts of human interaction. The state space is now defined as $\mathcal{X} = (O, U)$ for objects $O$ and user distributions $U$.
+
+The observations are identical to those in the Bayes Filter. To facilitate response, our base action set contains: HAND, POINT, and SWEEP. If there is time, we may also add GROUP, TOUCH, and EXHIBIT. Each action acts on one or more objects.
+
+The transition function $\mathcal{T}(x_t | x_{t-1}, a)$ must be slightly different to handle the user belief estimation. To handle this, we split the transition into to parts, one for $O$ and one for $U$. $O$ is updated exactly as it was in the Bayes Filter, while $U$ is updated  based on the robots actions. We assume that the human observes the action and interprets it in the same way the robot interprets human gestures, so we simply use the same Gaussian method we did for interpreting user gestures to update the estimate of the user's distribution. We have not yet fully fleshed out how the user's estimate will be updated with respect to actions more complex than pointing.
+
+Because running a POMDP with an infinite space of observations and state space, we plan to simplify this by assuming that $U$ is observed, deterministically updating it based solely on the robot's actions. This removes the problem of the infinite state space, but not of the infinite observations, which makes solving the POMDP intractable. To solve this, rather than solving the POMDP, we are considering using thresholding entropy of the state distribution to determine when certain actions are appropriate.
+
+Once this system is successfully on the robot, we will begin user studies to tune the parameters of our model to enable the most natural and helpful responses. We hope to demonstrate that a robot providing backchannel feedback to a user during a collaborative interaction will be much more efficient and useful. We will compare this system to a robot using partial backchannels by limiting the number of responsive actions, as well as two humans interacting to provide an expert baseline.
+\section*{Schedule}
+March 1st - Add pick and place to existing system with the help of John Oberlin.\\
+March 8th - Begin rerunning trials from Bayes Filter on a larger scale with pick and place. Math for POMDP fully fleshed out and base implementation working\\
+March 15th - Finish trials with Bayes Filter, fully functional POMDP demo. Begin POMDP user studies.\\
+March 22nd - Draft of paper for ISRR conference.\\
+March 29th - Finish POMDP User Studies. Final draft of ISRR papers with full results.\\
+April 8th - Submit thesis draft to Stefanie for review.\\
+April 15th - Submit thesis.
+\end{document}
