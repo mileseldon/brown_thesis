@@ -66,80 +66,157 @@
 
 \maketitle % Print the title section
 
+\section{Introduction}
+Robots have long been a great asset in factory settings, yet remain unable to make the crucial leap into daily life, interacting in a variety of ways with human users. A large barrier to this leap has been an inability to quickly understand and react to the varying requests human users can supply in rapidly changing environments. My work focuses on creating the capability for a robotic assistant to understand and respond to a human user's referring expressions in real time, allowing for fluid and meaningful interactions. Previous work has focused on understanding human requests, but is limited to single modalities such as speech. There have been several systems that fused multiple modalities to create a more robust system, but even these have been performed in a offline manner, creating an unreasonable processing delay before the robotic assistant can react to user requests. My work focuses on maintaining a distribution over a user's state at all time to allow for continuous recognition and response. By continuously computing the belief state using a Bayes Filter, my system can continuously estimate the true user state while processing multiple sources of input, such as speech and gesture. The Bayes Filter approach provides an accurate way of measuring the current user's state, but limits the ability to respond. To extend the Bayes Filter to a model that allows for meaningful responses, my system is modified into a Partially Observable Markov Decision Process (POMDP). Although computation of the POMDP I propose is intractable, I also provide a reasonable approximation of the POMDP, which can be estimated in real time, providing rapid and accurate action choices in real time. The result is a system capable of interpreting and responding to human requests, either by acting or requesting clarification, in a variety of scenarios. For this thesis, the scenario is limited to requesting objects from a table using the Baxter Robot, but this can easily be extended with the encoding of the appropriate observations and actions.
+\section{Assumptions and Their Implications}
+The Bayes Filter and POMDP share several assumptions. They are that:
+\begin{itemize}
+\item The human desire for objects to be handed to them is Markovian. The results of the user studies justify this as a fairly reasonable simplifying assumption.
+\item The system knows all objects that might be considered in our environment. This is to facilitate object recognition and model generation. This is currently necessary because I do not have a system that can quickly and reliably train object models on the fly, but would not be difficult to change is such a system became available.
+\item The forearm (as opposed to the fingers) creates a pointing gesture. This reduces accuracy and is not ideal, but was necessitated by a lack of a reliable hand tracker at the distance I required. Again, this can be easily changed if a reliable hand tracking system was acquired.
+\item The user always wants the robot to hand them an object. This can by mitigated by adding a \textit{null} state, where the robot believes the user does not want anything. In application, unless there is only one object in the scene, the results are identical either way, and so I chose not to incorporate such a state for simplicity.
+\item All parts of observations (discussed in the next section), are conditionally independent. Namely, given that a user wants a specific object $x$, the probability that they point at $x$ with their left hand and that they point at $z$ with their right hand are independent. This makes the computation of $p(z|x)$ tractable, and, as the user studies show, is a reasonable assumption.
+\end{itemize}
+%This system assumes that \\
+%This system assumes that \\
+%This system assume that the 
+\section{The Bayes Filter}
+The aim of the Bayes Filter is to estimate a distribution over the object in a scene that a user is referring to given language and gesture inputs. We wish to estimate the user state $x \in \mathcal{X}$, the object in the scene the person is currently referring to. The Bayes Filter assumes that the users state behaves in a  Markovian way, such that each state depends only on the previous state, and each observation depends only on the state that produced it:
 
-%----------------------------------------------------------------------------------------
-%	ESSAY BODY
-%----------------------------------------------------------------------------------------
+\includegraphics[scale=0.7]{images/bayes_filter}
 
-\section*{Introduction}
-	Robots have long been a great asset in factory settings, yet remain unable to make the crucial leap into daily life. A large barrier to this leap has been an inability to react and interact quickly to the varying requests of human users in rapidly changing environments. My work will focus on creating the capability for a robotic assistant to understand and respond to a human user's referring expressions in real time, allowing for fluid and helpful interactions. Previous work has focused on understanding human requests, but focuses on single modalities such as speech or pointing gestures. There have been a few that fused multimodal expressions to create a more robust system, but even these have been performed offline, creating an unreasonable delay before the robot can react. My work focuses on maintaining a distribution over a users state at all times to allow for continuous recognition and response. The first part of my thesis was generating a system to watch users and continuously estimate their desires using a Bayes Filter. I am now working on extending this so that a robotic assistant can respond to its estimated user state in real time using a Partially Observable Markov Decision Process (POMDP). When complete, the POMDP system will determine the appropriate responses for the robotic assistant, whether asking for clarification or performing the action it believes is desired.
-%------------------------------------------------
-
-\section*{Bayes Filter}
-We began this project with the assumption that the Baxter robot would be assisting a person by handing them different items while the person was attempting to accomplish some task, for example, handing a user the flour while they are making a cake. With this in mind, we designed a Bayes Filter to continuously estimate which object in a scene the user was asking for. As is typical with a Bayes Filter, we have hidden states $\mathcal{X}$, which in this case represents each of the possible objects the person wants, and observations $\mathcal{Z}$, which include speech and arm gesture (and head pose, although this proved too noisy to be useful). The true state at time step $t$ directly imply the observation for that time step, and  each true state is dependent only on the previous state, as shown in the diagram below.\\
-\includegraphics[scale=0.4]{images/bayes_filter}
-
-
-We implemented this system on the Baxter robot, using a unigram model for speech and a Gaussian over the angle between pointing gestures and objects to calculate the probabilities that observations indicated specific objects. We used a large constant ($c=0.95$) probability for the state transitioning to itself, this prevented belief from spiking towards the most recent gesture when previous information gave strong indication of the user's desired object. Formally, at each time step we wish to calculate:
+\subsection{Technical Approach}
+The robot observes the user's body pose and speech $\mathcal{Z}$, and at each time step estimates a distribution over the current state, $x_t$:
 \begin{align}
- p(x_t | z_0 \dots z_{t})
+p(x_t | z_0, \dots, z_t)
 \end{align}
 
-Which is the probability that we are in a specific state at time step $t$ given all observations up to that point.\\
-Using Bayes' Rule, we factor this into  time update:
+To estimate this distribution, we perform alternating time and measurement updates. The time update incorporates the hidden state transitions using the previous state estimate and knowledge of the state transitions:
 \begin{align}
 p(x_t | z_{0:t-1}) = \int_{x_{t-1} \in \mathcal{X}} p(x_t|x_{t-1})\times p(x_{t-1} | z_{0:t-1}) \text{d}x_{t-1}
 \end{align}
-and a measurement update:
+
+The measurement update combines the previous belief with the newest observation to update each belief state: 
 \begin{align}
 p(x_t |z_{0:t}) = \frac{p(z_t | x_t) \times p(x_t | z_{0:t-1})}{p(z_t | z_{0:t-1})} \\\propto p(z_t | x_t) \times p(x_t | z_{0:t-1})
 \end{align}
-with transition function:
+
+This gives us an easily calculable estimation of the users state at each time step.
+\subsection{Prediction Model}
+We assume that a person is likely to continue referring to the same
+object, and so has a large probability $c$ of remaining in the state
+
 \begin{align}
 p(x_t | x_{t-1}) = \left\{  \begin{array}{ll}
-c &\mbox{if } x_t = x_{t-1}\\
-\frac{1-c}{|S|-1} &\mbox{otherwise}
+c&\mbox{if } x_t = x_{t-1}\\
+1-\frac{c}{|X|-1}&\mbox{otherwise}
 \end{array}\right.
 \end{align}
-and observation function: $p(z_t | x_t)$ factored into three independent pieces by our assumption that all observations (user actions) are independent given the true state of the object the user wants. So:
+
+This assumption means that the robot's certainty slowly decays over
+time, in the absence of corroborating information, converging to a
+uniform distribution.  It enables our framework to integrate past
+language and gesture information but also quickly adapt to new,
+conflicting information because it assumes the person has changed
+objects.
+\subsection{Observation Model}
+We assume access to an observation model of the form:
+\begin{align}
+p(z_t | x_t)
+\end{align}
+
+Observations consist of a tuple consisting of a person's actions,
+$\langle l, r, h, s\rangle $ where:
+\begin{itemize}
+	\item $l$ represents a vector from the observed origin ($l_o$) to the point ($l_v$) of the left arm.
+	\item $r$ represents a vector from the observed origin ($r_o$) to the point ($r_v$) of the right arm.
+	\item $h$ represents a vector from the observed origin ($h_o$) to the point ($h_v$) of the head. This is the angle of the head transformed into a unit length vector.
+	\item $s$ represents the observed speech from the user,
+          consisting of a list of words.
+	\end{itemize}
+
+Formally, we have:
+Formally, we have:
 \begin{align}
 p(z_t | x_t) &= p(l, r, h, s | x_t)\\
+\intertext{We factor assuming that each modality is independent of the others given the state (the true object that the person is referencing):}
 p(z_t | x_t) &= p(l | x_t) \times p(r | x_t) \times p(h | x_t) \times p(s | x_t)
 \end{align}
-Which is then calculated as described above.
+
+\noindent The following sections describe how we model each type of
+input from the person.  We track body pose using the NITE
+Tracker and define our models for the arm and head
+gestures in terms of the person's body pose.\\\\
+\noindent{\bf Gesture.}  We model pointing gestures as a vector
+through three dimensional space.  First, we calculate a gesture vector
+using the skeleton pose returned by NITE.  For arms, we compute a
+vector from the elbow to the wrist, then project this vector so that the origin is at the wrist.  For head pose, we compute a
+vector based on the body orientation. Next, we calculate the angle between the gesture
+vector and the vector from the gesture origin to the center of each object, and then use the PDF of a Gaussian ($\mathcal{N}$) with
+variance ($\sigma$) to determine the weight that should be assigned to
+that object. We define a function $\mbox{A}(o, p_1, p_2)$ as the angle
+between the two points, $p_1$ and $p_2$ with the given origin, $o$.
+Then
+\begin{align}
+p(l | x_t) \propto \mathcal{N}(\mu_l=0, \sigma_l)[A(l_o, l_v, x_t)]\\
+p(r | x_t) \propto \mathcal{N}(\mu_r=0, \sigma_r)[A(r_o, r_v, x_t)]
+\end{align}
+
+If the person's arm is more than a certain angle away from the table,
+we assume they are referring to none of the objects, and perform an
+update.  As a result, these gestures do not effect the robot's
+estimate of the objects being referenced.\\\\
+\noindent{\bf Head Pose.}
+Head pose is modeled in the same manner as arm gestures.
+\begin{align}
+p(h | x_t) \propto \mathcal{N}(\mu_h=0, \sigma_h)[A(h_o, h_v, x_t)]
+\end{align}
 
 
-With these functions, we can alternate the time and measurement updates to form a belief distribution over the possible states.\\
-We ran a user study, consisting of 13 Brown students, each performing 5 trials, for a total of 65 trials. The students were prompted to ask for a designated object in a scene containing four objects: a metal spoon, a metal bowl, a plastic spoon, and a plastic bowl. This was designed to enforce that objects would have similar identifiers. We asked them to ask for the objects in whatever way felt most natural for them, using either language or gesture. We told them they could use both language and gesture, but did not enforce either. We measured the accuracy of the system by recording the percentage of time that the system assigned the highest likelihood to the object designated during the interaction. We ran each trial in several different ways, excluding various pieces of information to show which observations were useful and that using language and gesture improved accuracy. The results are shown below with 95\% confidence intervals:\\\\
-\begin{tabular}{|c|c|}
-\hline
-Random & 25\%\\\hline
-Language Only & 32.4 +/- 10\%\\\hline
-Gesture Only & 73.12 +/- 9\%\\\hline
-Head Pose Only & 21.67 +/- 10\%\\\hline
-Language and Gesture & 81.99 +/- 5.5\%\\\hline
-All Observations & 64.84 +/- 8\%\\\hline
-\end{tabular}\\
-This demonstrated that we had created an accurate method for identifying which object in a scene a user desired. From there, we moved on to designing a reliable method for the robot to respond in a meaningful way.
-\section*{POMDP}
-After a successful demonstration of the Bayes Filter, we moved on to developing a POMDP model for responding to the state estimations created in the Bayes Filter. The only difference between a Bayes Filter and a POMDP is that a POMDP allows for the agent to have actions that have a probabilistic affect on the universe. We can model our Bayes Filter that was described previously as a POMDP with only one action that has no effect.
+\noindent{\bf Speech.}  We model speech with a unigram model, namely we
+take each word in a given speech input and calcuate the probability that, given the state, that word would have been spoken.
+\begin{align}
+p(s |x_t) = \displaystyle \prod_{w \in s} p(w | x_t)
+\end{align}
+\subsubsection{Null Words and Gesture}
 
+To account for continuous gesture and non-continuous speech input, we
+have both null poses and speech.  When no words are spoken, we assume
+a null word which has a uniform distribution over the objects.  This
+effect means that spoken words cause a discrete bump in probability
+according to the language model, which then decays over time. While
+gesture remains a continuous input throughout the entire interaction,
+many gestures have little or no meaning. To allow for these without
+overloading the model with noise, we also calculate the angle between
+each arm vector and each foot. If the angle between the arms and a
+foot is smaller than the angle between the arms and any object, we
+assume that the user is in a resting pose, and treat that gesture as
+indicating uniform probability over all states.
+\subsubsection{Model Parameters}
+We tuned model parameters by hand.  We considered collecting and
+annotating a data set to train the model parameters, but we found our
+initial process to be quite accurate. We generated the language model
+by hand, adding to it based on results of our pilot
+studies. After our initial tuning, we fixed
+  model parameters, and results reported in the paper all use the same
+  fixed set of parameters. We expect that as we add
+larger sets of objects, a language model trained using data from
+Amazon Mechanical Turk or other corpora will be necessary to increase
+robustness over a larger set of objects.  
 
-In our POMDP, we wish to allow for the robot to interpret the users desires and respond in meaningful ways when it is unsure. To do this, we wish to augment the state space with a distribution over what the user believes the robots estimate of the users desire is. This is necessary because the robots actions shouldn't change the object the user wants, but rather, how the user will behave to indicate that they want an object. It also allows for affirmation and negation, which are important parts of human interaction. The state space is now defined as $\mathcal{X} = (O, U)$ for objects $O$ and user distributions $U$.
+In our experiments, we had the following parameters: the transition
+probability, $c$, was 0.0005. We set this parameter to give an object
+that has 100\% confidence an approximately 10\% drop in confidence per
+second with all null observations.  Standard deviation for the
+Gaussian used to model probability of gesture, $\sigma_l$, $\sigma_r$,
+and $\sigma_h$ was 1.0 radians. We found that this standard deviation
+allowed for accurate pointing, without skewing the probabilities
+during an arm swing.  The language model consisted of 16 unique words,
+containing common descriptors for the objects such as ``bowl,''
+``spoon,'' ``metal,'' ``shiny,'' etc. It also included words that were
+commonly misinterpreted by the speech recognition system, such as
+``bull'' when the user was requesting a bowl.
 
-The observations are identical to those in the Bayes Filter. To facilitate response, our base action set contains: HAND, POINT, and SWEEP. If there is time, we may also add GROUP, TOUCH, and EXHIBIT. Each action acts on one or more objects.
-
-The transition function $\mathcal{T}(x_t | x_{t-1}, a)$ must be slightly different to handle the user belief estimation. To handle this, we split the transition into to parts, one for $O$ and one for $U$. $O$ is updated exactly as it was in the Bayes Filter, while $U$ is updated  based on the robots actions. We assume that the human observes the action and interprets it in the same way the robot interprets human gestures, so we simply use the same Gaussian method we did for interpreting user gestures to update the estimate of the user's distribution. We have not yet fully fleshed out how the user's estimate will be updated with respect to actions more complex than pointing.
-
-Because running a POMDP with an infinite space of observations and state space, we plan to simplify this by assuming that $U$ is observed, deterministically updating it based solely on the robot's actions. This removes the problem of the infinite state space, but not of the infinite observations, which makes solving the POMDP intractable. To solve this, rather than solving the POMDP, we are considering using thresholding entropy of the state distribution to determine when certain actions are appropriate.
-
-Once this system is successfully on the robot, we will begin user studies to tune the parameters of our model to enable the most natural and helpful responses. We hope to demonstrate that a robot providing backchannel feedback to a user during a collaborative interaction will be much more efficient and useful. We will compare this system to a robot using partial backchannels by limiting the number of responsive actions, as well as two humans interacting to provide an expert baseline.
-\section*{Schedule}
-March 1st - Add pick and place to existing system with the help of John Oberlin.\\
-March 8th - Begin rerunning trials from Bayes Filter on a larger scale with pick and place. Math for POMDP fully fleshed out and base implementation working\\
-March 15th - Finish trials with Bayes Filter, fully functional POMDP demo. Begin POMDP user studies.\\
-March 22nd - Draft of paper for ISRR conference.\\
-March 29th - Finish POMDP User Studies. Final draft of ISRR papers with full results.\\
-April 8th - Submit thesis draft to Stefanie for review.\\
-April 15th - Submit thesis.
+\subsection*{User Studies}
+\subsection*{Conclusions}
 \end{document}
