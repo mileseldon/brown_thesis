@@ -28,6 +28,7 @@
 \usepackage{hyperref}
 \usepackage{subfigure}
 \usepackage{booktabs}
+\usepackage[numbers]{natbib}
 \usepackage[usenames,dvipsnames]{color}
 \newcommand{\stnote}[1]{\textcolor{Blue}{\textbf{ST: #1}}}
 \newcommand{\menote}[1]{\textcolor{Red}{\textbf{ME: #1}}}
@@ -70,224 +71,54 @@
 \begin{document}
 
 \maketitle % Print the title section
-
+\newpage
+\tableofcontents
+\newpage
 \section{Introduction}
-Robots have long been a great asset in controlled settings, such as factories, yet remain unable to make the crucial leap into daily life, interacting in a variety of ways with human users. A large barrier to this leap has been an inability to quickly understand and react to the varying requests human users can supply in rapidly changing environments. This work focuses on creating the capability for a robotic assistant to understand and respond to a human user's referring expressions in real time, allowing for fluid and meaningful interactions. Previous work has focused on understanding human requests, but have been limited to single modalities, such as speech. There have been a few systems that have fused multiple modalities to create a more robust system, but even these have been performed in an offline manner, creating an unreasonable processing delay before the robotic assistant can react to user requests. To address this problem, we designed a Bayes Filter to continously estimate the user's state, allowing for continous understanding and reaction. We designed this system, and then performed user studies, demonstrating that this system could accurately infer the object the user was referencing 90\% of the time, running at a speed of 15 Hz. By using a Bayes Filter, this system can continously process multiple sources of observations, such as gesture and speech, to accurately understand the user's requests. 
-\section{Assumptions and Their Implications}
-This system makes several assumptions. They are that:
-\begin{itemize}
-\item Referring expressions from humans are Markovian, namely that each observation depends only on the current state and that each state depends only on the state immediately prior. Our user studies demonstrate that this is a reasonable simplifying assumption.
-\item The system knows all objects in our environment. This is to facilitate object recognition and model generation. It is possible to do this `on the fly', but is more complex and out of the scope of this project.
-\item The forearm, as opposed to the fingers, creates a pointing gesture. This reduces accuracy and is not ideal, but was necessitate by the lack of a reliable hand tracker at the distance required. If such a tracker became readily available, the system could be easily updated, and accuracy would be expected to improve.
-\item All components of an observation (discussed later), are conditionally independent given the state. Namely, if it is known that a person wants a specific object, the probability that they point at it with their left hand and that they point at it with their right hand are independent. This is a simplifying assumption intended to make computation of observation probabilities more tractable.
-\end{itemize}
-\section{The Bayes Filter}
-A Bayes Filter uses a Hidden Markov Model to form an estimate of a \textit{hidden} state $\mathcal{X}$. A Bayes Filter assumes access to several things:
-\begin{itemize}
-\item A transition function specifying the probability of transitioning to a state given the current state.
-\item An observation function specifying the probability of an observation, $\mathcal{Z}$, given the current state.
-\end{itemize}
-In our studies, we construct both of these functions.
+Robots have long been a great asset in controlled settings, such as factories, yet remain unable to make the crucial leap into daily life, interacting with humans. In order for humans and robots to collaborate in complex tasks, robots must be able to understand people's references to objects in the real world. For example, a robotic assistant might be asked to fetch a tool in a factory setting, or medicine in a hospital setting, or ingredients in a kitchen. Figure~\ref{fig:example} shows Baxter handing a bowl to a chef. To refer to objects, people use a fluid combination of speech, gesture, eye gaze, and a variety of other body language. People provide these referring expressions continiously, and can change rapidly based on new information from the agent they are instructing or their perception of the environment. This new information from a partner can be in the form of confirming signals, such as nodding of the head, or requests for clarification, such as looking confused or asking questions.~\citet{clark96} refers to this back and forth of instruction and clarification or confirmation as a \textit{joint activity}, used to assist in collaborative tasks by creating common ground and reducing uncertainty.
 
-Using this information, the Bayes Filter can continously maintain a distribution over $\mathcal{X}$.
+
+Responding quickly and accurately are critical for a truly interactive robotic assistant in everyday life. By continously interpreting human referring expressions, a robotic assistant can not only respond quickly, but also incorporate the relative timing of gestures and speech in a natural manner. Continous interpretation make interactions more rapid and fluid, and also enable a robot to provide affirming or clarifying feedback in a time frame that is reasonable. This rapid feedback makes these human robot interactions more meaningful by quickly leading to mutual understanding, either with both agents proceeding with their own tasks, or with the human clarifying a request for the robot, rather than necessitating a different system of the human confirming that a request was understood.
+
+\begin{figure}
+\centering
+\includegraphics[width=0.3\linewidth]{images/baxter_scene_cropped.jpg}
+\caption{Robots that collaborate with people need to understand their
+  references to objects in the environment.  For example, if a person
+  asks for a tool using language and gesture, the robot needs to
+  interpret the person's reference in order to pick up the correct
+  tool.\label{fig:example}}
+\end{figure}
+
+Despite the importance of a system capable of real-time response to multimodal input, existing models approaches fail to meet this high bar. Several systems focus on single modalities, which are insufficient to handle complicated interactions, such as ambigious phrases accompanied by gestures or vice versa~\citep{tellex11, kollar10}. Approaches that have incorporated multiple sources have failed to do so in an online manner, relying on batch interpretation, which is not fast enough for systems that need to respond immediately~\citep{matuszek14}. These approaches preclude rapid reaction, clarifying feedback, and the level of interpretation necessiated by human referring expressions.
+
+To provide a foundation for these capabilities, we propose a Bayes Filter to interpret information from language and gesture~\citep{thrun08}. Our framework relies on a factored observation probability that fuses information from language and gesture in real time to continuously estimate the object a human user is referencing. We initially demonstrate our model in simulation, and then perform user studies with our system running live to demonstrate its efficacy. The results show that our model quickly and effectively fuses multimodal information in real time to continously estimate the object being referenced. Additionally, we demonstrate a robot that uses our model to provide feedback in the form of facial expressions, pointing, and handing the user the object referenced in real time by interepreting gesture and language.
+
+\begin{figure*}
+\centering
+\subfigure[Ambiguous gesture.\label{fig:confused}]{\includegraphics[width=0.49\linewidth]{images/cartoon1.pdf}}
+\subfigure[Clarification with language.\label{fig:clarified}]{\includegraphics[width=0.49\linewidth]{images/cartoon2.pdf}}
+\caption{After an ambiguous gesture, the model has a uniform
+  distribution between two objects (a).  The robot responds by
+  indicating confusion.  Clarification with language causes a
+  probabilistic update leaving the model highly confident it has
+  inferred the correct object (b).  The robot responds by smiling and
+  pointing to the correct object. \label{fig:cartoon}}
+\end{figure*}
+
+\section{Related Work}
+~\citep{clark96} proposed that conversation is a \textit{joint activity}, a coordinated, collaboraitve process in which the two participants establish \textit{common ground}. Common ground refers to the process by which each participant establishs an understanding about the beliefs of the other. In order to establish common ground, people use various forms of feedback, ranging from head nods to looks of confusion to explicit clarifying questions. These forms of feedback allows the participants to iteratively establish common ground through instruction and clarification as time progresses. Our Bayes Filter approach provides a foundation for producing this feedback with a robot, which has the ability to increase robustness of human-robot communication through the establishment of common ground during interactions.
+
+
+\section{Assumptions}
 \section{Technical Approach}
-The robot observes the user's body pose and speech $\mathcal{Z}$, and at each time step estimates a distribution over the current state, $x_t$:
-\begin{align}
-p(x_t | z_0, \dots, z_t)
-\end{align}
-
-To estimate this distribution, we perform alternating time and measurement updates. The time update incorporates the hidden state transitions using the previous state estimate and knowledge of the state transitions:
-\begin{align}
-p(x_t | z_{0:t-1}) = \int_{x_{t-1} \in \mathcal{X}} p(x_t|x_{t-1})\times p(x_{t-1} | z_{0:t-1}) \text{d}x_{t-1}
-\end{align}
-
-The measurement update combines the previous belief with the newest observation to update each belief state: 
-\begin{align}
-p(x_t |z_{0:t}) = \frac{p(z_t | x_t) \times p(x_t | z_{0:t-1})}{p(z_t | z_{0:t-1})} \\\propto p(z_t | x_t) \times p(x_t | z_{0:t-1})
-\end{align}
-
-Once normalized, this gives us an easily calculable, accurate estimation of the users state at each time step.
 \subsection{Transition Model}
-We assume that a person is likely to continue referring to the same
-object, and so has a large probability $c$ of remaining in the state
-
-\begin{align}
-p(x_t | x_{t-1}) = \left\{  \begin{array}{ll}
-c&\mbox{if } x_t = x_{t-1}\\
-1-\frac{c}{|X|-1}&\mbox{otherwise}
-\end{array}\right.
-\end{align}
-
-This assumption means that the robot's certainty slowly decays in the absence of meaningful observations, convergine to a uniform distribution. This enables our framework to find a balance between integrating past information and incorporating new, contrary information to switch the most likely estimated state.
 \subsection{Observation Model}
-We assume access to an observation model of the form:
-\begin{align}
-p(z_t | x_t)
-\end{align}
-
-Observations consist of a tuple consisting of a person's actions,
-$\langle l, r, h, s\rangle $ where:
-\begin{itemize}
-    \item $l$ represents a vector from the observed origin ($l_o$) to the point ($l_v$) of the left arm.
-    \item $r$ represents a vector from the observed origin ($r_o$) to the point ($r_v$) of the right arm.
-    \item $h$ represents a vector from the observed origin ($h_o$) to the point ($h_v$) of the head. This is the angle of the head transformed into a unit length vector.
-    \item $s$ represents the observed speech from the user,
-          consisting of a list of words.
-    \end{itemize}
-
-Formally, we have:
-\begin{align}
-p(z_t | x_t) &= p(l, r, h, s | x_t)\\
-\intertext{We factor assuming that each modality is conditionally independent of the others given the state (the true object that the person is referencing):}
-p(z_t | x_t) &= p(l | x_t) \times p(r | x_t) \times p(h | x_t) \times p(s | x_t)
-\end{align}
-\noindent The following sections \(  \)describe how we model each type of
-input from the person.  We track body pose using the NITE
-Tracker and define our models for the arm and head
-gestures in terms of the person's body pose.\\\\
-\noindent{\bf Gesture}
-
-We model pointing gestures as a vector
-through three dimensional space.  First, we calculate a gesture vector
-using the skeleton pose returned by NITE.  For arms, we compute a
-vector from the elbow to the wrist, then project this vector so that the origin is at the wrist.  For head pose, we compute a
-vector based on the body orientation. Next, we calculate the angle between the gesture
-vector and the vector from the gesture origin to the center of each object, and then use the PDF of a Gaussian ($\mathcal{N}$) with
-variance ($\sigma$) to determine the weight that should be assigned to
-that object. We define a function $\mbox{A}(o, p_1, p_2)$ as the angle
-between the two points, $p_1$ and $p_2$ with the given origin, $o$.
-Then
-\begin{align}
-p(l | x_t) \propto \mathcal{N}(\mu_l=0, \sigma_l)[A(l_o, l_v, x_t)]\\
-p(r | x_t) \propto \mathcal{N}(\mu_r=0, \sigma_r)[A(r_o, r_v, x_t)]
-\end{align}
-
-\noindent{\bf Head Pose}
-
-Head pose is modeled in the same manner as arm gestures.
-\begin{align}
-p(h | x_t) \propto \mathcal{N}(\mu_h=0, \sigma_h)[A(h_o, h_v, x_t)]
-\end{align}
-
-
-\noindent{\bf Speech}
-
-We model speech with a unigram model, namely we
-take each word in a given speech input and calculate the probability that, given the state, that word would have been spoken.
-\begin{align}
-p(s |x_t) = \displaystyle \prod_{w \in s} p(w | x_t)
-\end{align}
-\subsubsection{Null Words and Gesture}
-While the previous models account for meaningful gestures and speech, we encounter problems when there is no speech, or meaningless gesture, such as a person holding their arms by their sides. To account for this we incorporate a notion of null speech and null gestures, namely observations that are equally likely across all states. Through our user studies, we found that many arm poses have little to no meaning. Initially, we solved this problem by using the user's feet, checking if the `gesture' was closer to pointing at the foot than anything else, and if it was, treating it as a null gesture. Later, we switched to a more robust method of using a min probability, effectively using the Gaussian only if the object was within a certain angle, and applying the min probablity otherwise. This helped consistently rule out meaningless gesture, as well as combat some underflow and normalization issues. The first method is the one we used in the user studies.
+\subsubsection{Null Words and Gestures}
 \subsubsection{Model Parameters}
-We tuned model parameters by hand.  We considered collecting and
-annotating a data set to train the model parameters, but we found our
-initial process to be quite accurate. We generated the language model
-by hand, adding to it based on results of our pilot
-studies. After our initial tuning, we fixed
- model parameters for the user studies.
-
-In our experiments, we had the following parameters: the transition
-probability, $c$, was 0.9995. We set this parameter to give an object
-that has 100\% confidence an approximately 10\% drop in confidence per
-second with all null observations.  Standard deviation for the
-Gaussian used to model probability of gesture, $\sigma_l$, $\sigma_r$,
-and $\sigma_h$ were 1.0 radians. We found that this standard deviation
-allowed for accurate pointing, without skewing the probabilities
-during an arm swing.  The language model consisted of 16 unique words,
-containing common descriptors for the objects such as ``bowl,''
-``spoon,'' ``metal,'' ``shiny,'' etc. It also included words that were
-commonly misinterpreted by the speech recognition system, such as
-``bull'' when the user was requesting a bowl.
-
-\begin{algorithm}
-    \DontPrintSemicolon
-    \KwIn{$bel(x_{t-1}), z_t$}
-    \BlankLine
-    \KwOut{$bel(x_t)$}
-    \BlankLine
-    \For{ $x_t$} {
-      $\bar{bel}(x_t) = \displaystyle\sum_{x_{t-1}} p(x_t|x_{t-1})*bel(x_{t-1})$
-      \BlankLine
-      \textbf{if not} is\_null\_gesture(l)
-      \BlankLine
-      \Indp$\bar{bel}(x_t) = p(l | x_t) *  \bar{bel}(x_t)$
-      \BlankLine
-      \Indm\textbf{if not} is\_null\_gesture(r)
-      \BlankLine
-      \Indp$\bar{bel}(x_t) = p(r | x_t) *  \bar{bel}(x_t)$
-      \BlankLine
-      \Indm\textbf{if not} is\_null\_gesture(h)
-      \BlankLine
-      \Indp$\bar{bel}(x_t) = p(h | x_t) *  \bar{bel}(x_t)$
-      \BlankLine
-      \Indm\For{$w \in s$}{
-        $\bar{bel}(x_t) = p(w | x_t) *  \bar{bel}(x_t)$
-      }
-      $bel(x_t) = \bar{bel}(x_t)$
-
-    }
-    \BlankLine
-\caption{Interactive Bayes Filtering Algorithm} 
-\label{alg:algorithm}
-\end{algorithm}
-
-Algorithm~\ref{alg:algorithm} shows pseudocode for our approach, while
-Figure~\ref{fig:cartoon} shows an example interaction using this algorithm. \menote{Add images and describe them}.
-
-Although in this example we are demonstrating our approach at two specific timesteps, the system is constantly updataing its distribution, enabling it to fuse different observations continously and update it's model. Our approach runs at 14Hz, including a 30Hz sleep cycle, on an Asus machine with 8 2.4 GHz Intel Cores that is also performing all perceptual and network processing. This is used in conjuction with the Baxter Robot and Kinect V1.
-\subsection*{User Studies}
-We ran 65 user trials, consisting of 13 participants running 5 trials each to measure the algorithm's accuracy in estimating a user's referenced object. Each subject stood in front of a table with four objects arranged to form a square, as appears in Figure ~\ref{fig:corpus_scene}. The four objects used were a metal spoon, a plastic spoon, a metal bowl, and a plasic bowl. This was designed so that few single word descriptions would uniquely differentiate all the objects. We instructed each participant to ask for the object indicated with a laser pointer in whatever way felt most natural, using any combination of language or gesture. The participants also wore a microphone to pick up quality audio for transcription. We used the HTML5 Webkit Audio API in conjuction with Google Chrome for speech transcription. This package supports incremental output as recognition proceeds, allowing us to update the model each time a new word is received, fitting in well with our continuous model.
-
-Results showing the percent of the time the estimated most likely
-object was the true object appear in Table~\ref{table:real_results}
-with 95\% confidence intervals.  During a typical trial, the model
-starts out approximately uniform or unimodal on the previous object
-(we did not reset the model between trials for the same user) As the subject points and
-talks, the model quickly converges to the correct object.  Our first
-set of results give a sense of how quickly the model converges by measuring total time correct.
-
-To assess overall accuracy, we report the system's accuracy at the end
-of a trial in \ref{table:end_real}.  Multimodal accuracy with language
-and gesture is more than 90\%, demonstrating that our approach is able
-to quickly and accurately interpret unscripted language and gesture
-produced by a user.  We found that our head pose estimator was quite
-inaccurate, performing slightly below random.  Thus overall
-results that include head pose perform worse than language and
-gesture.  We believe this effect has several sources, including marginal head movement when objects are relatively close together, as well as general inaccuracy in head rotation tracking. 
-
-The difference in accuracy between gesture alone and the multimodal output is not as large as one might expect. This is in part caused by the small delay in speech recognition software as opposed to the instantaneous gesture input. Additionally, many subjects, when told they could use gestures, leaned towards relying almost entirely on gesticulation. There were some users, however, who relied on an equal mix of both, and showed large leaps in accuracy between arms and multimodal. The most extreme example is of a user who, over their five trials, achieved only 45.5\% accuracy with arms alone and 42.2\% with speech alone, yet managed to achieve 85.7\% multimodal accuracy, only 2 percentage points away from the sum of the two probabilities, showing the ease at which alternating speech and gesture can give incredibly accurate results overall. While a combination of ambiguous speech and gesture such as "that spoon" followed by a gesture would be more accurate than just a gesture, we found that most test subjects either spoke with complete ambiguity or none, using phrases either of the form "hand me that thing" or "hand me the silver spoon". Therefore we were unable to fully test this hypothesis.
-
-\begin{table}
-\caption{Real-world Results\label{table:real_results}}
-\centering
-\begin{tabular}{lr}
-\toprule
-Random & 25\%\\
-Language only &  32.4\% +/- 10\%\\
-Gesture only  &  73.12\% +/- 9\%\\
-Head only     &  21.67\% +/- 10\%\\
-Multimodal (Language and Gesture) & {\bf 81.99\% +/- 5.5\%}\\
-Multimodal (All) &  64.84\% +/- 8\%\\
-\bottomrule
-\end{tabular}
-\end{table}
-\begin{table}
-\caption{Real-world Results (End of Interaction)\label{table:end_real}}
-\centering
-\begin{tabular}{lr}
-\toprule
-Random & 25\%\\
-Language only &  46.15\%\\
-Gesture only  &  80.0\%\\
-Head only     & 18.46\%\\
-Multimodal (Language and Gesture) & {\bf 90.77\%}\\
-Multimodal (All) &  61.54\%\\
-\bottomrule
-\end{tabular}
-\end{table}
-\section{CONCLUSION}
-We have demonstrated a Bayes filtering approach to interpreting a person's language and gesture references to objects continously in real time. Our approach not only allows for rapid understanding, but also allows for the easy incorporation of various sources of input. This provides a novel and extensible method of continous interpreation and understanding of human referring expressions.
-
-In the future, we plan to expand this ability to facilitate meaningful responses from the robotic assistant to communicate understanding or uncertainty. To do this, we plan on using the Bayes Filter as the basis of a Partially Observable Markov Decision Process. Other plans for improvement include incorporating eye tracking as an observation. In addition to that, a hand tracker with corresponding gesture classifier would provide a more robust pointing detector. These and other changes would allow for a more robust version of the system we created.
+\section{Evaluation}
+\subsection{Simulation Results}
+\subsection{User Studies}
+\section{Future Work}
+\section{Conclusion}
 \end{document}
