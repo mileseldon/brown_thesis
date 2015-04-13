@@ -2,3 +2,5 @@
 *.log
 thesis.pdf
 *.aux
+*.idx
+*.toc

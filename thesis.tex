@@ -31,7 +31,7 @@
 \usepackage{makeidx}
 \usepackage[numbers]{natbib}
 \usepackage[usenames,dvipsnames]{color}
-
+\usepackage[bottom]{footmisc}% places footnotes at page bottom
 
 \newcommand{\stnote}[1]{\textcolor{Blue}{\textbf{ST: #1}}}
 \newcommand{\menote}[1]{\textcolor{Red}{\textbf{ME: #1}}}
@@ -185,15 +185,57 @@ p(z_t | x_t) &= p(l | x_t) \times p(r | x_t) \times p(h | x_t) \times p(s | x_t)
 \subsubsection{Modeling Gesture}
 We track body pose using the NITE skeleton tracker~\citep{openni}. We use this skeletal pose information to extract the 3D vector representing each forearm and the angle of the head (a unit length vector computed based on the observed rotation of the head). We then project the forearm gestures such that each arm vector actually originates in the wrist, as shown in Figure~\ref{fig:labeled_obs}. These three vectors comprise our deictic gestures.
 
-To convert each vector observation $v$ into a probability for each object we need to compute $p(v | x_t)$. Since $v$ is composed of an origin $o$ and a point $p_1$, we simply take the center of mass of the object $x_t$, which we will call $p_2$. Next, we define a function $\mbox{A}(o, p_1, p_2)$ to calculate the angle between $p_1$ and $p_2$ using origin $o$. With this angle, we then calculate the density of a Gaussian  distribution $\mathcal{N}$ with zero mean and variance $\sigma$ to convert the angle into a probability. Formally, this gives us:
+To convert each vector observation $v$ into a probability for each object we need to compute $p(v | x_t)$. Since $v$ is composed of an origin $o$ and a point $p_1$, we simply take the center of mass of the object $x_t$, which we will call $p_2$. Next, we define a function $\mbox{A}(o, p_1, p_2)$ to calculate the angle between $p_1$ and $p_2$ using origin $o$. With this angle, we then calculate the density of a Gaussian  distribution $\mathcal{N}$ with zero mean and standard deviation $\sigma$ to convert the angle into a probability. Formally, this gives us:
 \begin{align}
 p(l | x_t) \propto \mathcal{N}(\mu_l=0, \sigma_l)[A(l_o, l_v, x_t)]\\
 p(r | x_t) \propto \mathcal{N}(\mu_r=0, \sigma_r)[A(r_o, r_v, x_t)]\\
 p(h | x_t) \propto \mathcal{N}(\mu_h=0, \sigma_h)[A(h_o, h_v, x_t)]
 \end{align}
 \subsubsection{Modeling Speech}
+We model speech with a unigram model, namely we take each word in a given speech input and calculate the probability that, given the state, that word would have been spoken. Although a unigram model will often miss out on important combinations of words, such as ``blue bowl'' versus ``red bowl'', the continuous nature of the Bayes' Filter actually incorporates the combination of words in a meaningful way despite only using a unigram model, even if the color and the word ``bowl'' occur at different timesteps. Formally:
+\begin{align}
+p(s |x_t) = \displaystyle \prod_{w \in s} p(w | x_t)
+\end{align}
+
+To train these individual probabilities, we use a corpus of object-word associations. If word $w$ appeared in the corpus associated with object $x_t$ $k$ times out of $n$ total (not necessarily unique) words associated with $x_t$, then:
+\begin{align}
+p(w | x_t) = \frac{k}{n}
+\end{align}
 \subsubsection{Null Words and Gestures}
+While the models for interpreting referring expressions discussed so far are accurate when interpreting meaningful gestures and speech, they encounter problems when there is meaningless speech or gestures, such as someone just repeating ``cake'' when there is no cake\footnote{The cake is a lie} or simply holding their arms by their sides. Expressions like this have the ability to zero all probabilities (in speech) or skew probabilities randomly even if one arm is pointing and the other is by a user's side. Throughout our user studies, we found that, especially with gesture, these types of meaningless expressions were common. To solve this problem for speech, we simply incorporated some basic epsilon smoothing, so that for object $x_t$ with an associated corpus of size $n$ in which word $w$ did not occur, rather than caculating:
+\begin{align}
+p(w | x_t) = \frac{0}{n} = 0
+\end{align}
+
+We calculate:
+\begin{align}
+p(w | x_t) = \epsilon = \frac{1}{n}
+\end{align}
+
+The meaningless gestures posed a more difficult problem. Initially we tried to solve this by calculating the angle between a gesture vector and the users feet. If that angle was smaller than the angle between the gesture and any object, then we simply applied equal weight to all objects, essentially treating it as a non-existent gesture. However, this caused problems with users crossing their arms, scratching an itch, and other innocuous movements. This is the method we used user studies, however, in later iterations we tried two different methods. The first involved simply treating a gesture as non-existent if it was greater than some angle $\theta$ away from all objects. This was easy to tune and performed fairly well, but in hope of greater robustness, we also implemented a third method of smoothing. This method involved replacing:
+\begin{align}
+p(v | x_t) \propto \mathcal{N}(\mu_l=0, \sigma_l)[A(v_o, v_v, x_t)]
+\end{align}
+With:
+\begin{align}
+p(v | x_t) \propto max(min\_prob, \mathcal{N}(\mu_v=0, \sigma_v)[A(v_o, v_v, x_t)])
+\end{align}
+
+This method of smoothing flattens the ends of the Gaussian distribution into constants, rather than continuing to decay regardless of the magnitude of the angle, as show in Figure~\ref{fig:gauss}\footnote{Image generated by wolframalpha.com}, avoiding the strange skewing that occured without the smoothing. This has proved more diffcult to tune appropriately, but avoids completely ignoring any gesture, and therefore seems to be more robust in the long term.
+\begin{figure}[h]
+\centering
+\fbox{\includegraphics[scale=0.5]{images/gauss.png}}
+\caption{A Gaussian distribution with minima smoothing.\label{fig:gauss}}
+\end{figure}
 \subsection{Model Parameters}
+We tuned model parameters by hand. We considered collecting and annotating a data set to train the model parameters, but we found that our initial process was quite accurate during real world trials. We generated the language model by hand, adding to it based on results of our pilot studies. After our initial tuning, we fixed model parameters for the duration of the user studies. 
+
+In our experiments we had the following parameters:\begin{itemize}
+\item The transition probability $c$, which was set to 0.985. We set this paramater to give an object that has near 100\% confidence an approximately 10\% drop in confidence per second with all null observations.
+\item The standard deviations $sigma_l$, $sigma_r$, and $sigma_h$, used in the Gaussian distribution to convert gestures into probabilities. We found that $sigma_l = sigma_r = sigma_h = 1.0$ allowed for accurate pointing, without rapidly skewing the confidence distribution during an arm swing or slight meaningless motion.
+\item The language model, which consisted of sixteen unique words, containing the most common decriptors for each of the objects such as ``bowl,'' ``spoon,'' ``metal,'' and ``plastic''. It also included words that were commonly misinterpreted by the speech recognition system, such as ``bull'' in place of ``bowl.'' For our user studies, this small, hand trained set was sufficient, but for larger trials with more object we intend to train language models on Amazon Mechanical Turk.
+\item $\epsilon$, the smoothing factor for the unigram language model. Since our word corpus was so small, we decided to simply set $\epsilon$ to 0.001 rather than the expected $\frac{1}{n}$ where $n$ is the size of the corpus. This was to simulate the effects of a larger corpus despite the size of our corpus. This is identical to simply duplicating the hand crafted data until the corpus contained 1000 words.
+\end{itemize}
 \subsection{Assumptions}
 \section{Evaluation}
 \subsection{Simulation Results}
