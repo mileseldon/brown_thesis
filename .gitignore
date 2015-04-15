@@ -4,3 +4,6 @@ thesis.pdf
 *.aux
 *.idx
 *.toc
+.DS_Store
+*.bbl
+*.blg
