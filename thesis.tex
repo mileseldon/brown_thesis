@@ -55,6 +55,23 @@
 \vspace{40pt} % Some vertical space between the author block and abstract
 \end{flushright}
 }
+
+\renewenvironment{thebibliography}[1]
+     {\list{\@biblabel{\@arabic\c@enumiv}}%
+           {\settowidth\labelwidth{\@biblabel{#1}}%
+            \leftmargin\labelwidth
+            \advance\leftmargin\labelsep
+            \usecounter{enumiv}%
+            \let\p@enumiv\@empty
+            \renewcommand\theenumiv{\@arabic\c@enumiv}}%
+      \sloppy
+      \clubpenalty4000
+      \@clubpenalty \clubpenalty
+      \widowpenalty4000%
+      \sfcode`\.\@m}
+     {\def\@noitemerr
+       {\@latex@warning{Empty `thebibliography' environment}}%
+      \endlist}
 %----------------------------------------------------------------------------------------
 %	TITLE
 %----------------------------------------------------------------------------------------
@@ -78,12 +95,9 @@
 \section{Introduction}
 Robots have long been a great asset in controlled settings, such as factories, yet remain unable to make the crucial leap into daily life, interacting with humans. In order for humans and robots to collaborate in complex tasks, robots must be able to understand people's references to objects in the real world. For example, a robotic assistant might be asked to fetch a tool in a factory setting, or medicine in a hospital setting, or ingredients in a kitchen. Figure~\ref{fig:example} shows Baxter handing a circuit board to an engineer. To refer to objects, people use a fluid combination of speech, gesture, eye gaze, and a variety of other body language. People provide these referring expressions continuously, and can change rapidly based on new information from the agent they are instructing or their perception of the environment. This new information from a partner can be in the form of confirming signals, such as nodding of the head, or requests for clarification, such as looking confused or asking questions.~\citet{clark96} refers to this back and forth of instruction and clarification or confirmation as a \textit{joint activity}, used to assist in collaborative tasks by creating common ground and reducing uncertainty.
 
-
-Responding quickly and accurately are critical for a truly interactive robotic assistant in everyday life. By continuously interpreting human referring expressions, a robotic assistant can not only respond quickly, but also incorporate the relative timing of gestures and speech in a natural manner. Continuous interpretation make interactions more rapid and fluid, and also enable a robot to provide affirming or clarifying feedback in a time frame that is reasonable. This rapid feedback makes these human robot interactions more meaningful by quickly leading to mutual understanding, either with both agents proceeding with their own tasks, or with the human clarifying a request for the robot, rather than necessitating a different system of the human confirming that a request was understood.
-
 \begin{figure}[h]
 \centering
-\includegraphics[width=0.3\linewidth]{images/baxter_scene_cropped.jpg}
+\includegraphics[width=0.5\linewidth]{images/baxter_scene_cropped.jpg}
 \caption{Robots that collaborate with people need to understand their
   references to objects in the environment.  For example, if a person
   asks for a tool using language and gesture, the robot needs to
@@ -91,34 +105,36 @@ Responding quickly and accurately are critical for a truly interactive robotic a
   tool.\label{fig:example}}
 \end{figure}
 
+Responding quickly and accurately are critical for a truly interactive robotic assistant in everyday life. By continuously interpreting human referring expressions, a robotic assistant can not only respond quickly, but also incorporate the relative timing of gestures and speech in a natural manner. Continuous interpretation make interactions more rapid and fluid, and also enable a robot to provide affirming or clarifying feedback in a time frame that is reasonable. This rapid feedback makes these human robot interactions more meaningful by quickly leading to mutual understanding, either with both agents proceeding with their own tasks, or with the human clarifying a request for the robot, rather than necessitating a different system of the human confirming that a request was understood.
+
 Despite the importance of a system capable of real-time response to multimodal input, existing models approaches fail to meet this high bar. Several systems focus on single modalities, which are insufficient to handle complicated interactions, such as ambiguous phrases accompanied by gestures or vice versa~\citep{tellex11, kollar10}. Approaches that have incorporated multiple sources have failed to do so in an online manner, relying on batch interpretation, which is not fast enough for systems that need to respond immediately~\citep{matuszek14}. These approaches preclude rapid reaction, clarifying feedback, and the level of interpretation necessitated by human referring expressions.
 
-To provide a foundation for these capabilities, we propose a Bayes' Filter to interpret information from language and gesture~\citep{thrun08}. Our framework relies on a factored observation probability that fuses information from language and gesture in real time to continuously estimate the object a human user is referencing. We initially demonstrate our model in simulation, and then perform user studies with our system running on a RGB-D corpus of untrained users referencing objects on a table. The results show that our model quickly and effectively fuses multimodal information in real time to continuously estimate the object being referenced. Additionally, we demonstrate a robot that uses our model to provide feedback in the form of facial expressions, pointing, and handing the user the object referenced in real time by interpreting gesture and language.
-
-\begin{figure*}
+To provide a foundation for these capabilities, we propose a Bayes' Filter to interpret information from language and gesture~\citep{thrun08}. Our framework relies on a factored observation probability that fuses information from language and gesture in real time to continuously estimate the object a human user is referencing. We initially demonstrate our model in simulation, and then perform user studies with our system running on a RGB-D corpus of untrained users referencing objects on a table. The results show that our model quickly and effectively fuses multimodal information in real time to continuously estimate the object being referenced. Additionally, we demonstrate a robot that uses our model to provide feedback in the form of facial expressions, pointing, and handing the user the object referenced in real time by interpreting gesture and language, as shown in Figure~\ref{fig:cartoon}.
+\begin{figure*}[h]
 \centering
-\subfigure[Ambiguous gesture.\label{fig:confused}]{\includegraphics[width=0.49\linewidth]{images/cartoon1.pdf}}
-\subfigure[Clarification with language.\label{fig:clarified}]{\includegraphics[width=0.49\linewidth]{images/cartoon2.pdf}}
+\subfigure[Ambiguous gesture.\label{fig:confused_pic}]{\includegraphics[width=0.49\linewidth]{images/ambiguous_pic.png}}
+\subfigure[Clarification with language.\label{fig:clarified_pic}]{\includegraphics[width=0.49\linewidth]{images/clarification_pic.png}}
+\subfigure[State estimate during ambiguous speech.\label{fig:confused_dist}]{\includegraphics[width=0.49\linewidth]{images/ambiguous_dist.png}}
+\subfigure[State estimate after clarification.\label{fig:clarified_dist}]{\includegraphics[width=0.49\linewidth]{images/clarification_dist.png}}
 \caption{After an ambiguous gesture, the model has a uniform
   distribution between two objects (a).  The robot responds by
   indicating confusion.  Clarification with language causes a
   probabilistic update leaving the model highly confident it has
-  inferred the correct object (b).  The robot responds by smiling and
-  pointing to the correct object. \label{fig:cartoon}}
+  inferred the correct object (b).  The robot responds by smiling and handing the user the object they referenced. \label{fig:cartoon}}
 \end{figure*}
-
 \section{Related Work}
 ~\citet{clark96} proposed that conversation is a \textit{joint activity}, a coordinated, collaborative process in which the two participants establish \textit{common ground}. Common ground refers to the process by which each participant establishes an understanding about the beliefs of the other. In order to establish common ground, people use various forms of feedback, ranging from head nods to looks of confusion to explicit clarifying questions. These forms of feedback allows the participants to iteratively establish common ground through instruction and clarification as time progresses. Our Bayes' Filter approach provides a foundation for producing this feedback with a robot, which has the ability to increase robustness and reduce rate of error in human-robot communication through the establishment of common ground during interactions.
 
 A large body of research focuses on language understanding for robots, ignoring information, but fails to account for the continuous nature of language, requiring full sentences or some other form of batching before interpretation can take place~\citep{macmahon06, dzifcak09, kollar10, matuszek12}. While this batching can help improve accuracy, the delays it imposes are unreasonable for a real time system. Our approach, in contrast, incorporates each word as it is processed during speech recognition, integrating it over time and fusing it with body language. In a similar vein as our research, \citet{guadarrama14} interprets open-domain references to objects, but still fails to include gesture, precluding natural non-verbal references. \citet{cantrell10} provides a framework for incrementally interpreting language, but neither includes language nor corpus based results. Our approach draws several ideas from each of these, but focuses on a more robust system of continuous understanding and interpretation.
 
-Many other approaches for command interpretation depend on command words such as ``follow'' or ``stop''~\citep{waldherr00, marge11}. This type of system goes directly against what is desired, which is that an untrained user could interact with the system in whatever way felt most natural, rather than enforcing some small set of keywords that trigger specific behavior. This type of system removes the ability to make a robotic assistant to appear human in it's actions and reactions, and also ignores the importance of body language in interactions, as well as continuous interpretation of language.
+Many other approaches for command interpretation depend on command words such as ``follow'' or ``stop''~\citep{waldherr00, marge11}. This type of system goes directly against what is desired, which is that an untrained user could interact with the system in whatever way felt most natural, rather than enforcing some small set of keywords that trigger specific behavior. This type of system removes the ability to make a robotic assistant to appear human in its actions and reactions, and also ignores the importance of body language in interactions, as well as continuous interpretation of language.
 
 \citet{matuszek14} presented work that falls closest to ours; a multimodal framework for interpreting unscripted references to tabletop objects using language and gesture, providing an accuracy rate comparable to the accuracy our system demonstrates in correctly identifying the referenced object. However, this system relies on interpretation of batched data, failing to operate in real time, strictly limiting it in comparison to our continuous Bayes' Filter approach.
 
 Partially Observable Markov Decision Process approaches to dialogue interpretation have been extended to incorporate gesture and noise models, similar to our approach~\citep{young13, young10} . We have begun exploring similar methods of generating robot response, leading to informative feedback from a robotic assistant. \citet{dragan13} created a system to enable a robot to create gestures designed to strike a balance between legibility and predictability. While we have explored the research in creating feedback, we have mostly focused on interpreting these gestures from humans, rather than generating them. Our long-term aim is to combine the understanding we have created with these systems to produce feedback, allowing for the rapid creation of common ground between a robotic assistant and a human user.
+
 \section{Technical Approach}
-Our aim is to estimate a distribution over which object a human user is referencing given language and body pose inputs. We frame this problem as a Bayes' Filter~\citep{thrun08}, where the \textit{hidden} state $x \in \mathcal{X}$ is the object in the scene the person is currently referencing. The robot observes the speech and gesture $z \in \mathcal{Z}$ at each timestep $t$ and continuously estimates a distribution over $x_t$, as shown in Figure~\ref{fig:model}. This model requires access to a transition function specifying $p(x_t | x_{t-1})$ and an observation function specifying $p(z_t | x_t)$. Part of our model involves the development of these functions.
+Our aim is to estimate a distribution over which object a human user is referencing given language and body pose inputs. We frame this problem as a Bayes' Filter~\citep{thrun08}, where the \textit{hidden} state $x \in \mathcal{X}$ is the object in the scene the person is currently referencing. The system observes the speech and gesture $z \in \mathcal{Z}$ at each timestep $t$ and continuously estimates a distribution over $x_t$, as shown in Figure~\ref{fig:model}. This model requires access to a transition function specifying $p(x_t | x_{t-1})$ and an observation function specifying $p(z_t | x_t)$. Part of our model involves the development of these functions.
 
 \begin{figure}[h]
 \centering
@@ -172,7 +188,7 @@ $\langle l, r, h, s\rangle $ (shown in Figure~\ref{fig:labeled_obs}) where:
 
 \begin{figure}[h]
 \centering
-\fbox{\includegraphics[scale=0.5]{images/labeled_obs.png}}
+\fbox{\includegraphics[scale=0.5]{images/labeled_obs2.png}}
 \caption{An image from our corpus with the components of observation labeled.\label{fig:labeled_obs}}
 \end{figure}
 Formally, we have:
@@ -310,11 +326,11 @@ We ran 65 user trials, consisting of 13 participants running 5 trials each to me
 
 Results showing the percent of the time the estimated most likely
 object was the true object appear in Table~\ref{table:real_results}
-with 95\% confidence intervals.  During a typical trial, the model
+with 95\% confidence intervals. During a typical trial, the model
 starts out approximately uniform or unimodal on the previous object
 (we did not reset the model between trials for the same user) As the subject points and
 talks, the model quickly converges to the correct object.  Our first
-set of results give a sense of how quickly the model converges by measuring total time correct.
+set of results give a sense of how quickly the model converges by measuring total time correct. The results are shown with various observation sources masked off, but all are run on the same trials. Thus, part of the error in each trial (except the multimodal trial), comes from users actively choosing not to use that form of referring expression during that trial.
 
 To assess overall accuracy, we report the system's accuracy at the end
 of a trial in \ref{table:end_real}.  Multimodal accuracy with language
@@ -325,7 +341,7 @@ inaccurate, performing slightly below random.  Thus overall
 results that include head pose perform worse than language and
 gesture.  We believe this effect has several sources, including marginal head movement when objects are relatively close together, as well as general inaccuracy in head rotation tracking. 
 
-The difference in accuracy between gesture alone and the multimodal output is not as large as one might expect. This is in part caused by the small delay in speech recognition software as opposed to the instantaneous gesture input. Additionally, many subjects, when told they could use gestures, leaned towards relying almost entirely on gesticulation. There were some users, however, who relied on an equal mix of both, and showed large leaps in accuracy between arms and multimodal. The most extreme example is of a user who, over their five trials, achieved only 45.5\% accuracy with arms alone and 42.2\% with speech alone, yet managed to achieve 85.7\% multimodal accuracy, only 2 percentage points away from the sum of the two probabilities, showing the ease at which alternating speech and gesture can give incredibly accurate results overall. While a combination of ambiguous speech and gesture such as "that spoon" followed by a gesture would be more accurate than just a gesture, we found that most test subjects either spoke with complete ambiguity or none, using phrases either of the form "hand me that thing" or "hand me the silver spoon". Therefore we were unable to fully test this hypothesis.
+The difference in accuracy between gesture alone and the multimodal output is not as large as one might expect. This is in part caused by the delays in speech recognition software as opposed to the instantaneous gesture input. Additionally, many subjects, when told they could use gestures, leaned towards relying almost entirely on gesticulation. There were some users, however, who relied on an equal mix of both, and showed large leaps in accuracy between arms and multimodal. The most extreme example is of a user who, over their five trials, achieved only 45.5\% accuracy with arms alone and 42.2\% with speech alone, yet managed to achieve 85.7\% multimodal accuracy, only 2 percentage points away from the sum of the two probabilities, showing the ease at which alternating speech and gesture can give incredibly accurate results overall. While a combination of ambiguous speech and gesture such as "that spoon" followed by a gesture would be more accurate than just a gesture, we found that most test subjects either spoke with complete ambiguity or none, using phrases either of the form "hand me that thing" or "hand me the silver spoon". Therefore we were unable to fully test this hypothesis.
 \begin{table}
 \caption{Real-world Results\label{table:real_results}}
 \centering
@@ -361,7 +377,7 @@ The first, and most prominent, source of error is most likely the preconditionin
 
 Another source of error is the accuracy of the skeleton tracker and it's calibration relative to the positioning of the objects. During our trials, we found that the skeleton tracker had a tendency to overlay a skeleton, as opposed to inserting it. Namely, the skeleton appeared to be projected on top of the skin rather than where one would expect the skeleton to be. This is the source of some inaccuracy, but from the user studies appears not to have had a detrimental effect. In addition to this, the positioning of objects and the Kinect needed to be calibrated to be in the same reference frame. Errors in this could have compounded this overlay problem.
 
-Erroneous transcription of speech was a large source of error for the unigram model. We tried to mitigate this by including words that were commonly transcribed incorrectly, such as ``bull'' instead of ``bowl,'' however varying accents and speech patterns impacted the transcription process. This could be solved in the future by using large sets of spoken descriptions to train the unigram models, collected through Amazon Mechanical Turk or similar services.
+Speech transcription was a source of error. Although erroneous transcription of speech was not a large source of error, it had some small effects. We tried to mitigate this by including words that were commonly transcribed incorrectly, such as ``bull'' instead of ``bowl,'' however varying accents and speech patterns impacted the transcription process. This problem  be solved in the future by using large sets of spoken descriptions to train the unigram models, collected through Amazon Mechanical Turk or similar services. A larger problem was the speech transcription was simply delay. Since we measured accuracy as percent of time correct, a two second delay in transcription during a five second reference meant a 40\% drop in speech accuracy.
 
 The final major source of error was the lack of a hand tracker. Were we forced to rely on the forearm position for deictic gestures, which was reasonable enough given the software we had access to. This caused problems however, when people curved their wrists slightly during a pointing motion, as it often caused the system to interpret their gesture as pointing slightly behind the object the human user was intending to point at. This especially caused problems because our user study setup had objects behind each other, making the system interpret gestures to the closer objects as more ambiguous than they were.
 
@@ -376,14 +392,16 @@ While we found that head tracking was equivalent to noise during our trials, we 
 
 These three components would greatly improve the accuracy of our system, while leaving the basic functionality untouched. To improve overall functionality and reasoning, we would need a more robust model built on top of the Bayes' Filter to perform higher reasoning about the world and what actions are appropriate.
 
-To tackle this challenge, we have begun exploring the efficacy of a POMDP framework~\citep{kaelbling99}. This expands upon the Bayes' Filter approach by adding responsive actions the robotic agent can take to affect the world and user's state. In our original model, when interacting with the robot, we simply hard coded thresholds at which to perform certain actions, such as pointing, picking, smiling, etc. Once this POMDP system is in place, we imagine using a framework similar to that created by \citet{dragan13} for generating legible gestures. This would enable a robot to respond by pointing as in \citet{holladay14} when it is confident and reflect it's confusion through facial expressions or a variety of gestures when it is not. This would increase the efficiency of the establishment of common ground by naturally eliciting more information from both parties.
+To tackle this challenge, we have begun exploring the efficacy of a POMDP framework~\citep{kaelbling99}. This expands upon the Bayes' Filter approach by adding responsive actions the robotic agent can take to affect the world and user's state. In our original model, when interacting with the robot, we simply hard coded thresholds at which to perform certain actions, such as pointing, picking, smiling, etc. Once this POMDP system is in place, we imagine using a framework similar to that created by \citet{dragan13} for generating legible gestures. This would enable a robot to respond by pointing as in \citet{holladay14} when it is confident and reflect its confusion through facial expressions or a variety of gestures when it is not. This would increase the efficiency of the establishment of common ground by naturally eliciting more information from both parties.
 
 To make the system as a whole more robust, we hope to be able to incorporate object training and feature identification into the base functionality. Allowing the robot to learn features of objects and train objects `on the fly' would remove the current limitations that all object and object models must be known. This would a robotic assistant to move smoothly between a variety of tasks with similar, but not identical objects, which is necessary for a robotic assistant to be capable in a variety of real world situations.
 
 Finally, we hope to expand the system beyond simple object references, allowing a wider variety of requests to be processed in a similar continuous fashion. While understanding object references is an important step, a wide variety of commands can be understood with some modifications to this framework, which would greatly increase its usability.
 \section{Conclusion}
-We have demonstrated a Bayes' Filtering approach to interpreting a person's natural language and gesture references to objects in the real world continuously in real time. Our approach not only allows for rapid understanding, but also for the easy simultaneous incorporation of various sources of input. This system provides a novel and extensible method of continuous interpretation and understanding of human referring expressions. This work represents a step towards real world human-robot interaction and the vision presented by \citet{clark96} of communication as joint activity. While there is still much work that can be done to improve this system, we have demonstrated it's effectiveness in real world situations with untrained users. By using this system, a robotic assistant can accurately interpret a human user's object references in real time.
+We have demonstrated a Bayes' Filtering approach to interpreting a person's natural language and gesture references to objects in the real world continuously in real time. Our approach not only allows for rapid understanding, but also for the easy simultaneous incorporation of various sources of input. This system provides a novel and extensible method of continuous interpretation and understanding of human referring expressions. This work represents a step towards real world human-robot interaction and the vision presented by \citet{clark96} of communication as joint activity. While there is still much work that can be done to improve this system, we have demonstrated its effectiveness in real world situations with untrained users. By using this system, a robotic assistant can accurately interpret a human user's object references in real time.
 \newpage
+\addcontentsline{toc}{section}{References}
+\section*{\centering References}
 \bibliographystyle{plainnat}
 \bibliography{main}
 \end{document}
